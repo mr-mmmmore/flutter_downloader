@@ -414,30 +414,35 @@ class FlutterDownloaderPlugin : MethodChannel.MethodCallHandler, FlutterPlugin {
         val imageQueryUri: Uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
         val contentResolver: ContentResolver = requireContext().contentResolver
 
-        // search the file in image store first
-        val imageCursor = contentResolver.query(imageQueryUri, projection, imageSelection, selectionArgs, null)
-        if (imageCursor != null && imageCursor.moveToFirst()) {
-            // We found the ID. Deleting the item via the content provider will also remove the file
-            val id: Long =
-                imageCursor.getLong(imageCursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID))
-            val deleteUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
-            contentResolver.delete(deleteUri, null, null)
-        } else {
-            // File not found in image store DB, try to search in video store
-            val videoCursor = contentResolver.query(imageQueryUri, projection, imageSelection, selectionArgs, null)
-            if (videoCursor != null && videoCursor.moveToFirst()) {
+        try {
+            // search the file in image store first
+            val imageCursor = contentResolver.query(imageQueryUri, projection, imageSelection, selectionArgs, null)
+            if (imageCursor != null && imageCursor.moveToFirst()) {
                 // We found the ID. Deleting the item via the content provider will also remove the file
                 val id: Long =
-                    videoCursor.getLong(videoCursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID))
-                val deleteUri: Uri =
-                    ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+                    imageCursor.getLong(imageCursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID))
+                val deleteUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
                 contentResolver.delete(deleteUri, null, null)
             } else {
-                // can not find the file in media store DB at all
+                // File not found in image store DB, try to search in video store
+                val videoCursor = contentResolver.query(imageQueryUri, projection, imageSelection, selectionArgs, null)
+                if (videoCursor != null && videoCursor.moveToFirst()) {
+                    // We found the ID. Deleting the item via the content provider will also remove the file
+                    val id: Long =
+                        videoCursor.getLong(videoCursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID))
+                    val deleteUri: Uri =
+                        ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+                    contentResolver.delete(deleteUri, null, null)
+                } else {
+                    // can not find the file in media store DB at all -> do a simple delete
+                    file.delete();
+                }
+                videoCursor?.close()
             }
-            videoCursor?.close()
+            imageCursor?.close()
+        } catch (e: Exception) {
+            // fail silently
         }
-        imageCursor?.close()
     }
 
     companion object {
