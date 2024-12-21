@@ -40,7 +40,7 @@
     NSMutableArray *_eventQueue;
 }
 
-@property(nonatomic, strong) dispatch_queue_t databaseQueue;
+@property(nonatomic, assign, readonly) dispatch_queue_t databaseQueue;
 
 /// The flag ensures that the database task avoids be marked as other status after be marked as canceled in the termination.
 @property(nonatomic, assign, getter=isDatabaseQueueTerminated) BOOL databaseQueueTerminated;
@@ -57,8 +57,6 @@ static FlutterEngine *_headlessRunner = nil;
 static int64_t _callbackHandle = 0;
 static int _step = 10;
 static NSMutableDictionary<NSString*, NSMutableDictionary*> *_runningTaskById = nil;
-
-@synthesize databaseQueue;
 
 - (instancetype)init:(NSObject<FlutterPluginRegistrar> *)registrar;
 {
@@ -92,7 +90,6 @@ static NSMutableDictionary<NSString*, NSMutableDictionary*> *_runningTaskById = 
         if (debug) {
             NSLog(@"database path: %@", dbPath);
         }
-        databaseQueue = dispatch_queue_create("vn.hunghd.flutter_downloader", 0);
         
         _dbManager = [[FlutterDownloaderDBManager alloc] initWithDatabaseFilePath:dbPath];
         
@@ -150,6 +147,16 @@ static NSMutableDictionary<NSString*, NSMutableDictionary*> *_runningTaskById = 
     // all relevant plugins (excluding those which require UI).
     registerPlugins(_headlessRunner);
     [_registrar addMethodCallDelegate:self channel:_callbackChannel];
+}
+
+- (dispatch_queue_t)databaseQueue {
+    static dispatch_queue_t _shareDatabaseQueue = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        _shareDatabaseQueue = dispatch_queue_create("vn.hunghd.flutter_downloader", 0);
+    });
+    
+    return _shareDatabaseQueue;
 }
 
 - (FlutterMethodChannel *)channel {
@@ -302,7 +309,7 @@ static NSMutableDictionary<NSString*, NSMutableDictionary*> *_runningTaskById = 
 
 - (void)executeInDatabaseQueueForTask:(void (^)(void))task {
     __typeof__(self) __weak weakSelf = self;
-    dispatch_sync(databaseQueue, ^{
+    dispatch_sync(self.databaseQueue, ^{
         if (weakSelf.isDatabaseQueueTerminated) return;
         if (task) task();
     });
