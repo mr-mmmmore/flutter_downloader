@@ -441,7 +441,8 @@ class FlutterDownloaderPlugin : MethodChannel.MethodCallHandler, FlutterPlugin {
                     ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
                 contentResolver.delete(deleteUri, null, null)
             } else {
-                // can not find the file in media store DB at all
+                // can not find the file in media store DB at all -> attempt a simple delete
+                file.delete()
             }
             videoCursor?.close()
         }
